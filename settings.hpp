@@ -1,3 +1,6 @@
+#ifndef __SETTINGS_H__
+#define __SETTINGS_H__
+
 #include <iostream>
 #include <fstream>
 #include <stdio.h>
@@ -18,13 +21,8 @@
 #include <thread>
 #include <mutex>
 #include <vector>
-#define PORT 12345
+#define LOG_PATH "/var/log/erss/proxy.log"
+extern std::ofstream proxy_log;
 
 
-class Proxy{
-    size_t port;
-    size_t ID;
-public:
-    Proxy();
-    void proxy_init();
-};
+#endif
