@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdlib.h> 
 #include <unistd.h>
+#include <pthread.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -21,8 +22,10 @@
 #include <thread>
 #include <mutex>
 #include <vector>
+#define PORT 12345
 #define LOG_PATH "/var/log/erss/proxy.log"
 extern std::ofstream proxy_log;
+extern int server_fd;
 
 
 #endif

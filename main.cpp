@@ -1,7 +1,6 @@
 #include "settings.hpp"
 #include "proxy.hpp"
 
-std::ofstream proxy_log;
 
 int main(){
     proxy_log.open(LOG_PATH, std::ios_base::out);
