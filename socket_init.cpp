@@ -40,13 +40,16 @@ void socket_init(){
 void build_client(char * client_ip_addr, int &client_socket_fd){
 	struct sockaddr_in address;
 	int addrlen = sizeof(address);
+	std::cout << "enter build" <<std::endl;
 	if ((client_socket_fd = accept(server_fd, (struct sockaddr *)&address,
 					(socklen_t*)&addrlen))<0)
 	{
 		perror("accept failed");
 		exit(EXIT_FAILURE);
 	}
+	std::cout << "accepted" << std::endl;
 	if (inet_ntop(AF_INET, &(address.sin_addr), client_ip_addr, INET_ADDRSTRLEN) == NULL) {
 		perror("inet_ntop() failed");
 	}
+	std::cout << "leave build" <<std::endl;
 }

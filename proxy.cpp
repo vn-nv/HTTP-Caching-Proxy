@@ -1,6 +1,7 @@
 #include "settings.hpp"
 #include "socket_init.hpp"
 #include "proxy.hpp"
+#include "cache.hpp"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -14,7 +15,7 @@ void Proxy::proxy_init(){
 	while(true){
 		char client_ip_addr[INET_ADDRSTRLEN];
 		int client_socket_fd;
-		pthread_mutex_lock(&mutex);
+		//pthread_mutex_lock(&mutex);
 		build_client(client_ip_addr, client_socket_fd);
 		memset(&client_ip_addr, 0, sizeof(client_ip_addr));
 		std::time_t seconds = std::time(nullptr);
@@ -24,9 +25,12 @@ void Proxy::proxy_init(){
 		Request* client_request = new Request(this->curr_id, client_socket_fd, client_ip, request_time);
         (this->curr_id)++;
 		std::cout<<this->curr_id<<std::endl;
-		pthread_mutex_unlock(&mutex);
-		pthread_t thread;
-		pthread_create(&thread, NULL, client_handler, client_request);
+		//pthread_mutex_unlock(&mutex);
+		//pthread_t thread;
+		//pthread_create(&thread, NULL, client_handler, client_request);
+		client_handler(client_request);
+		close(client_socket_fd);
+
 		/*
         std::thread client(&Proxy::client_handler, this, client_request);
         client.join();
@@ -39,9 +43,9 @@ void Proxy::proxy_init(){
 	}
 }
 
-
-void* Proxy::client_handler(Request* req){
-	char buff[1024] = {0};
+void* Proxy::client_handler(void* request){
+	Request *req = (Request *)request;
+	char buff[65536] = {0};
 	int cnt = recv(req->getFd(), buff, 1024, 0);
 	if (cnt == -1) {
         perror("recv() failed ");
@@ -51,14 +55,15 @@ void* Proxy::client_handler(Request* req){
 	std::string buffer = buff;
 	std::string method = buffer.substr(0, buffer.find(" "));
 	std::string temp1 = buffer.substr(buffer.find(" ") + 1);
+	std::string url = temp1.substr(0, temp1.find(" "));
 	std::string temp2 = buffer.substr(buffer.find("//") + 2);
 	std::string hostname = temp2.substr(0, temp2.find("/"));
 	std::string query = temp1.substr(temp1.find(hostname) + hostname.length());
 	const char *c_host = hostname.c_str();
 	struct hostent *host = gethostbyname(c_host);
-	pthread_mutex_lock(&mutex);
+	//pthread_mutex_lock(&mutex);
 	proxy_log << req->getIp() << ": " << buffer.substr(0, buffer.find("\r\n")) << " from " << req->getIp() << " @ " <<req->getTime() << std::endl;
-	pthread_mutex_unlock(&mutex);
+	//pthread_mutex_unlock(&mutex);
 	int server_socket_fd;
 	if ((server_socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
@@ -85,9 +90,11 @@ void* Proxy::client_handler(Request* req){
 		perror("send failed");
 		return NULL;
 	}
-	std::cout << "send finished " << std::endl;
-	int len = 65503;
+	std::cout << "send finished 1" << std::endl;
+	int len = 65536;
 	std::vector<char> recv_buffer(len);
+
+	std::vector<char> result;
 	int length = 0;
     do {
         if ((length = recv(server_socket_fd, recv_buffer.data(), recv_buffer.size(), 0)) < 0)
@@ -98,26 +105,27 @@ void* Proxy::client_handler(Request* req){
         recv_buffer.resize(length);
 
         // send message back to client
-        if (send(req->getFd(), &recv_buffer[0], length, 0) < 0)
+        if (length > 0 && send(req->getFd(), &recv_buffer[0], length, 0) < 0)
         {
             perror("send failed");
             return NULL;
         }
+		result.insert(result.end(), recv_buffer.begin(), recv_buffer.end());
     } while (length > 0);   
 	std::cout << "length: " << length << std::endl;
 
 	std::cout << "receive finished\n"
 			  << std::endl;
 	std::cout << "message to send" << std::endl;
-	std::cout << recv_buffer.data();
-	// send message back to client
 
-	if (send(req->getFd(), &recv_buffer[0], length, 0) < 0)
-	{
-		perror("send failed");
-		return NULL;
-	}
-	std::cout << "send finished" <<std::endl;
+	//convert response to string type
+	std::string string_result(result.begin(), result.end());
+
+	//for get method
+	response* server_response = new response();
+	server_response->parseResponse(string_result);
+
+	std::cout << "send finished 2" << std::endl;
 	close(server_socket_fd);
 	return NULL;
 }

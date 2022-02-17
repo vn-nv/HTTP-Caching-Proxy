@@ -33,7 +33,7 @@ class Proxy{
 public:
     Proxy();
     void proxy_init();
-    void *client_handler(Request* req);
+    static void *client_handler(void* req);
     //void server_handler(Request* req);
 };
 
