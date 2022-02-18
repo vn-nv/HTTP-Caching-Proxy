@@ -4,6 +4,8 @@
 #include "cache.hpp"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+LRUCache* proxy_cache;
+std::ofstream proxy_log;
 
 Proxy::Proxy(){
 	this->port = PORT;
@@ -12,6 +14,7 @@ Proxy::Proxy(){
 
 void Proxy::proxy_init(){
 	socket_init();
+	proxy_cache = new LRUCache(CACHE_CAPACITY);
 	while(true){
 		char client_ip_addr[INET_ADDRSTRLEN];
 		int client_socket_fd;
@@ -59,18 +62,30 @@ void* Proxy::client_handler(void* request){
 	std::string temp2 = buffer.substr(buffer.find("//") + 2);
 	std::string hostname = temp2.substr(0, temp2.find("/"));
 	std::string query = temp1.substr(temp1.find(hostname) + hostname.length());
-	const char *c_host = hostname.c_str();
-	struct hostent *host = gethostbyname(c_host);
+	std::string request_line = buffer.substr(0, buffer.find("\r\n"));
+	req->setRq(request_line, method, hostname, query, url);
 	//pthread_mutex_lock(&mutex);
-	proxy_log << req->getIp() << ": " << buffer.substr(0, buffer.find("\r\n")) << " from " << req->getIp() << " @ " <<req->getTime() << std::endl;
+	proxy_log << req->getIp() << ": \"" << req->getRequest() << "\" from " << req->getIp() << " @ " <<req->getTime() << std::endl;
 	//pthread_mutex_unlock(&mutex);
+	if(req->getMethod() == "POST"){
+		post_handler(req);
+	}else if(req->getMethod() == "GET"){
+		get_handler(req);
+	}else{
+		connect_handler(req);
+	}
+	return NULL;
+}
+
+std::vector<char> recv_response(Request* req, std::string new_request){
+	const char *c_host = req->getHost().c_str();
+	struct hostent *host = gethostbyname(c_host);
 	int server_socket_fd;
 	if ((server_socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
 		perror("socket failed");
-		return NULL;
+		exit(EXIT_FAILURE);
 	}
-	req->setRq(method, hostname, query, server_socket_fd);
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(80);
@@ -78,68 +93,151 @@ void* Proxy::client_handler(void* request){
 	if (connect(server_socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
 	{
 		perror("connect failed");
-		return NULL;
+		exit(EXIT_FAILURE);
 	}
 	std::cout << "Connected" << std::endl;
-	std::string new_request = method + " " + query; 
 	std::cout << new_request << std::endl;
 	const char *new_buffer = new_request.c_str();
-
 	if (send(server_socket_fd, new_buffer, new_request.length(), 0) < 0)
 	{
 		perror("send failed");
-		return NULL;
+		exit(EXIT_FAILURE);
 	}
 	std::cout << "send finished 1" << std::endl;
 	int len = 65536;
 	std::vector<char> recv_buffer(len);
-
 	std::vector<char> result;
 	int length = 0;
     do {
         if ((length = recv(server_socket_fd, recv_buffer.data(), recv_buffer.size(), 0)) < 0)
         {
             perror("receive failed");
-            return NULL;
+            exit(EXIT_FAILURE);
         }
         recv_buffer.resize(length);
-
-        // send message back to client
-        if (length > 0 && send(req->getFd(), &recv_buffer[0], length, 0) < 0)
-        {
-            perror("send failed");
-            return NULL;
-        }
 		result.insert(result.end(), recv_buffer.begin(), recv_buffer.end());
-    } while (length > 0);   
+    } while (length > 0);
 	std::cout << "length: " << length << std::endl;
-
-	std::cout << "receive finished\n"
-			  << std::endl;
+	std::cout << "receive finished" << std::endl;
 	std::cout << "message to send" << std::endl;
+	close(server_socket_fd);
+	return result;
+}
 
+std::vector<char> server_handler(Request* req){
+	std::string new_request = req->getMethod() + " " + req->getQuery(); 
+	proxy_log << req->getId() << ": Requesting \"" <<  req->getRequest() << "from " << req->getHost() << std::endl;
+	return recv_response(req, new_request);
+}
+
+std::vector<char> revalidate(Request* req, Response* res){
+	std::string file_proctocal = req->getQuery().substr(0, req->getQuery().find("\r\n"));
+	std::string revalidation_request = req->getMethod() + " " + file_proctocal + "\r\n";
+	if(res->existEtag()){
+		revalidation_request += "If-None-Match:" + res->getEtag() + "\r\n";
+	}
+	if(res->existLastModified()){
+		revalidation_request += "If-Not-Modified-Since:" + res->getLastModified() + "\r\n";
+	}
+	if(!res->existEtag() && !res->existLastModified()){
+		return server_handler(req);
+	}
+	revalidation_request += "Host:" + req->getHost() + "\r\n";
+	std::cout<<revalidation_request<<std::endl;
+	return recv_response(req, revalidation_request);
+}
+
+void not_hit_cache(Request* req){
+	std::vector<char> result = server_handler(req);
 	//convert response to string type
 	std::string string_result(result.begin(), result.end());
-
 	//for get method
-	response* server_response = new response();
+	Response* server_response = new Response();
 	server_response->parseResponse(string_result);
-
-	std::cout << "send finished 2" << std::endl;
-	close(server_socket_fd);
-	return NULL;
+	proxy_log << req->getId() << ": Received \"" <<  server_response->getResponse() << "from " << req->getHost() << std::endl;
+	if(server_response->requireResend()){
+		//log
+		get_handler(req);
+		return;
+	}else if(server_response->prohibitStoration()){
+		proxy_log << req->getId() << ": not cacheable because of cache-control: no-store" << std::endl;
+	}else if(!server_response->isPublic()){
+		proxy_log << req->getId() << ": not cacheable because of cache-control: private" << std::endl;
+	}else if(server_response->getStatus() != "200 OK"){
+		proxy_log << req->getId() << ": not cacheable because the status of the response is unexpected" << std::endl;
+	}else{
+		proxy_cache->put(req->getURL(), server_response);
+		if(server_response->requireValidation()){
+			proxy_log << req->getId() << ": cached, but requires re-validation " << server_response->getExpiredTime() << std::endl;
+		}else if(server_response->existExpiredTime()){
+			proxy_log << req->getId() << ": cached, expires at " << server_response->getExpiredTime() << std::endl;
+		}
+	}
+	if (send(req->getFd(), &result[0], result.size(), 0) < 0)
+	{
+		perror("send failed");
+	}
+	proxy_log << req->getId() << ": Responding \"" << server_response->getResponse() << "\""<< std::endl;
+	delete(req);
+	proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 }
 
-/*
-void Proxy::server_handler(Request* req){
+void get_handler(Request* req){
+	Response* res = proxy_cache->get(req->getURL());
+	if(res != NULL){
+		if(res->requireValidation()){
+			proxy_log << req->getId() << ": in cache, requires validation" << std::endl;
+			std::vector<char> result = revalidate(req, res);
+			//convert response to string type
+			std::string string_result(result.begin(), result.end());
+			//for get method
+			Response* revalidation_response = new Response();
+			revalidation_response->parseResponse(string_result);
+			if(revalidation_response->getStatus() == "304 Not Modified"){
+				if (send(req->getFd(), res->getContent().c_str(), res->getContent().length(), 0) < 0){
+					perror("send failed");
+				}
+				proxy_log << req->getId() << ": Responding \"" << res->getResponse() << "\""<< std::endl;
+				delete(req);
+				proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
+			}else if(revalidation_response->getStatus() == "200 OK"){
+				proxy_cache->put(req->getURL(), revalidation_response);
+				if (send(req->getFd(), revalidation_response->getContent().c_str(), revalidation_response->getContent().length(), 0) < 0){
+					perror("send failed");
+				}
+				proxy_log << req->getId() << ": Responding \"" << res->getResponse() << "\""<< std::endl;
+				delete(req);
+				proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
+			}
+		}else if(res->isExpired()){
+			proxy_log << req->getId() << ": in cache, but expired at " << res->getExpiredTime() << std::endl;
+			not_hit_cache(req);
+		}else{ 
+			proxy_log << req->getId() << ": in cache, valid" << std::endl;
+			if (send(req->getFd(), res->getContent().c_str(), res->getContent().length(), 0) < 0){
+				perror("send failed");
+			}
+			proxy_log << req->getId() << ": Responding \"" << res->getResponse() << "\""<< std::endl;
+			delete(req);
+			proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
+		}
+	}else{
+		proxy_log << req->getId() << ": not in cache" << std::endl;
+		not_hit_cache(req);
+	}
 }
-*/
 
-
-void get_request(){
-	
+void post_handler(Request* req){
+	std::vector<char> result = server_handler(req);
+	if (send(req->getFd(), &result[0], result.size(), 0) < 0)
+    {
+		perror("send failed");
+    }
+	std::string s(result.begin(), result.end());
+	proxy_log << req->getId() << ": Responding \"" << s.substr(0, s.find("\r\n")) << "\""<< std::endl;
+	delete(req);
+	proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 }
 
-void post_request(){
-	
+void connect_handler(Request* req){
 }

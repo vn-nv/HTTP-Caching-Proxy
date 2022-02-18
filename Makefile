@@ -1,19 +1,19 @@
 all: link
 
-main: main.cpp
-	g++ -std=c++11 -g -c main.cpp -o main.o
-
-proxy: proxy.cpp
-	g++ -std=c++11 -pthread -g -c proxy.cpp -o proxy.o
-
-cache: cache.cpp
-	g++ -std=c++11 -pthread -g -c cache.cpp -o cache.o
-
-socket_init: socket_init.cpp
+socket_init.o: socket_init.cpp
 	g++ -std=c++11 -pthread -g -c socket_init.cpp -o socket_init.o
 
-link: proxy socket_init cache main
-	g++ -std=c++11 -pthread -g socket_init.o cache.o proxy.o main.o -o proxy
+http_message.o: http_message.cpp
+	g++ -std=c++11 -pthread -g -c http_message.cpp -o http_message.o
+
+proxy.o: proxy.cpp
+	g++ -std=c++11 -pthread -g -c proxy.cpp -o proxy.o
+
+main.o: main.cpp
+	g++ -std=c++11 -pthread -g -c main.cpp -o main.o
+
+link: socket_init.o http_message.o proxy.o main.o 
+	g++ -std=c++11 -pthread -g socket_init.o http_message.o proxy.o main.o -o proxy
 
 clean:
 	rm -rf *.o *.~ proxy

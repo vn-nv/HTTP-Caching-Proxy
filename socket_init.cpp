@@ -1,7 +1,6 @@
 #include "socket_init.hpp"
 
 int server_fd;
-std::ofstream proxy_log;
 
 void socket_init(){
 	struct sockaddr_in address;
@@ -25,7 +24,7 @@ void socket_init(){
 	address.sin_port = htons(PORT);
 	// Forcefully attaching socket to the port 12345
 	if (bind(server_fd, (struct sockaddr *)&address,
-								sizeof(address))<0)
+		sizeof(address))<0)
 	{
 		perror("bind failed");
 		exit(EXIT_FAILURE);

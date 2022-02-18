@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
-#include <ctime>
+#include <time.h>
 #include <string>
 #include <cstring>
 #include <unordered_map>
@@ -23,6 +23,7 @@
 #include <mutex>
 #include <vector>
 #define PORT 12345
+#define CACHE_CAPACITY 100
 #define LOG_PATH "/var/log/erss/proxy.log"
 extern std::ofstream proxy_log;
 extern int server_fd;
