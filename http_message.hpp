@@ -86,13 +86,13 @@ public:
         return expire_time && expire_time < *curr_time;
     }
     bool existEtag(){
-        return Etag == "";
+        return Etag != "";
     }
     bool existLastModified(){
-        return Last_Modified == "";
+        return Last_Modified != "";
     }
     bool existExpiredTime(){
-        return Expired_Time == "";
+        return Expired_Time != "";
     }
     bool requireValidation(){
         time_t *curr_time;

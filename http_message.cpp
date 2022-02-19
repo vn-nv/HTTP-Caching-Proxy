@@ -3,23 +3,29 @@
 void Response::parseResponse(std::string res) {
     std::string::size_type pstatus_start = res.find(" ") + 1;
     std::string::size_type pstatus_end = res.find("\r\n");
-    status = res.substr(pstatus_start, pstatus_end - pstatus_start + 1);
+    status = res.substr(pstatus_start, pstatus_end - pstatus_start);
     response = res.substr(0, pstatus_end);
     std::cout << "status " << status << std::endl;
 
     std::string::size_type pEtag_start = res.find("ETag: ") + 6;
     if (pEtag_start != 5) {
         std::string::size_type pEtag_end = res.find("\r\n", pEtag_start);
-        Etag = res.substr(pEtag_start, pEtag_end - pEtag_start + 1);
+        Etag = res.substr(pEtag_start, pEtag_end - pEtag_start);
         std::cout << "Etag " << Etag << std::endl;
     }
 
     std::string::size_type pModified_start = res.find("Last-Modified: ") + 15;
     if (pModified_start != 14) {
         std::string::size_type pModified_end = res.find("\r\n", pModified_start);
-        Last_Modified = res.substr(pModified_start, pModified_end - pModified_start + 1);
+        Last_Modified = res.substr(pModified_start, pModified_end - pModified_start);
         std::cout << "Last_Modified " << Last_Modified << std::endl;
         lastModifiedTimeConvert(Last_Modified);
+    }
+
+    cache_public = false;
+    std::string::size_type is_cache_public = res.find("public");
+    if (is_cache_public != -1) {
+        cache_public = true;
     }
 
     no_cache = false;
@@ -44,21 +50,21 @@ void Response::parseResponse(std::string res) {
     std::string::size_type pmax_age_start = res.find("max-age") + 8;
     if (pmax_age_start != 7) {
         std::string::size_type pmax_age_end = res.find("\r\n", pmax_age_start);
-        max_age = atoi((res.substr(pmax_age_start, pmax_age_end - pmax_age_start + 1)).c_str());
+        max_age = atoi((res.substr(pmax_age_start, pmax_age_end - pmax_age_start)).c_str());
         std::cout << "max-age " << max_age << std::endl;
     }
 
     std::string::size_type pexpire_start = res.find("Expires: ") + 9;
     if (pexpire_start != 8) {
         std::string::size_type pexpire_end = res.find("\r\n", pexpire_start);
-        Expired_Time = res.substr(pexpire_start, pexpire_end - pexpire_start + 1);
+        Expired_Time = res.substr(pexpire_start, pexpire_end - pexpire_start);
         expireTimeConvert(Expired_Time);
     }
 
     std::string::size_type presponse_start = res.find("Date: ") + 6;
     if (presponse_start != 5) {
         std::string::size_type presponse_end = res.find("\r\n", presponse_start);
-        std::string time = res.substr(presponse_start, presponse_end - presponse_start + 1);
+        std::string time = res.substr(presponse_start, presponse_end - presponse_start);
         responseTimeConvert(time);
     }
 
