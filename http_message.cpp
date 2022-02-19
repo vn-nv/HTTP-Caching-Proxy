@@ -1,6 +1,9 @@
 #include "http_message.hpp"
 
 void Response::parseResponse(std::string res) {
+    std::cout << "header" << std::endl;
+    std::cout << res.substr(0, res.find("\r\n\r\n")) << std::endl;
+
     std::string::size_type pstatus_start = res.find(" ") + 1;
     std::string::size_type pstatus_end = res.find("\r\n");
     status = res.substr(pstatus_start, pstatus_end - pstatus_start);
@@ -8,6 +11,9 @@ void Response::parseResponse(std::string res) {
     std::cout << "status " << status << std::endl;
 
     std::string::size_type pEtag_start = res.find("ETag: ") + 6;
+    if (pEtag_start == 5) {
+        pEtag_start = res.find("etag: ") + 6;
+    }
     if (pEtag_start != 5) {
         std::string::size_type pEtag_end = res.find("\r\n", pEtag_start);
         Etag = res.substr(pEtag_start, pEtag_end - pEtag_start);
@@ -15,6 +21,9 @@ void Response::parseResponse(std::string res) {
     }
 
     std::string::size_type pModified_start = res.find("Last-Modified: ") + 15;
+    if (pModified_start == 14) {
+        pModified_start = res.find("last-modified: ") + 15;
+    }
     if (pModified_start != 14) {
         std::string::size_type pModified_end = res.find("\r\n", pModified_start);
         Last_Modified = res.substr(pModified_start, pModified_end - pModified_start);
@@ -55,6 +64,9 @@ void Response::parseResponse(std::string res) {
     }
 
     std::string::size_type pexpire_start = res.find("Expires: ") + 9;
+    if (pexpire_start == 8) {
+        pexpire_start = res.find("expires: ") + 9;
+    }
     if (pexpire_start != 8) {
         std::string::size_type pexpire_end = res.find("\r\n", pexpire_start);
         Expired_Time = res.substr(pexpire_start, pexpire_end - pexpire_start);
@@ -62,6 +74,9 @@ void Response::parseResponse(std::string res) {
     }
 
     std::string::size_type presponse_start = res.find("Date: ") + 6;
+    if (presponse_start == 5) {
+        presponse_start = res.find("date: ") + 6;
+    }
     if (presponse_start != 5) {
         std::string::size_type presponse_end = res.find("\r\n", presponse_start);
         std::string time = res.substr(presponse_start, presponse_end - presponse_start);

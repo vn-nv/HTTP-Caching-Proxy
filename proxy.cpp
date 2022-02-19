@@ -19,8 +19,8 @@ void Proxy::proxy_init(){
 		char client_ip_addr[INET_ADDRSTRLEN];
 		int client_socket_fd;
 		//pthread_mutex_lock(&mutex);
-		memset(&client_ip_addr, 0, sizeof(client_ip_addr));
-		build_client(client_ip_addr, client_socket_fd);
+		memset(&client_ip_addr, 0, sizeof(client_ip_addr));			
+		build_client(client_ip_addr, client_socket_fd);	
 		std::time_t seconds = std::time(nullptr);
         std::string request_time = std::string(std::asctime(std::gmtime(&seconds)));
         request_time = request_time.substr(0, request_time.find("\n"));
@@ -67,9 +67,9 @@ void* Proxy::client_handler(void* request){
 }
 
 std::vector<char> recv_response(Request* req, std::string new_request){
-	std::cout << req->getHost() <<std::endl;
-	const char *c_host = req->getHost().c_str();
-	struct hostent *host = gethostbyname(c_host);
+	std::cout << req->getHost() << std::endl;
+	struct hostent *host = gethostbyname((req->getHost()).c_str());
+
 	int server_socket_fd;
 	if ((server_socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
