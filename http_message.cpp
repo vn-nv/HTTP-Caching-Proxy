@@ -8,7 +8,7 @@ void Response::parseResponse(std::string res) {
     std::string::size_type pstatus_end = res.find("\r\n");
     status = res.substr(pstatus_start, pstatus_end - pstatus_start);
     response = res.substr(0, pstatus_end);
-    std::cout << "status " << status << std::endl;
+    std::cout << "status: " << status << std::endl;
 
     std::string::size_type pEtag_start = res.find("ETag: ") + 6;
     if (pEtag_start == 5) {
@@ -17,7 +17,7 @@ void Response::parseResponse(std::string res) {
     if (pEtag_start != 5) {
         std::string::size_type pEtag_end = res.find("\r\n", pEtag_start);
         Etag = res.substr(pEtag_start, pEtag_end - pEtag_start);
-        std::cout << "Etag " << Etag << std::endl;
+        std::cout << "Etag: \"" << Etag << "\"" << std::endl;
     }
 
     std::string::size_type pModified_start = res.find("Last-Modified: ") + 15;
@@ -27,8 +27,14 @@ void Response::parseResponse(std::string res) {
     if (pModified_start != 14) {
         std::string::size_type pModified_end = res.find("\r\n", pModified_start);
         Last_Modified = res.substr(pModified_start, pModified_end - pModified_start);
-        std::cout << "Last_Modified " << Last_Modified << std::endl;
+        std::cout << "Last_Modified: " << Last_Modified << std::endl;
         lastModifiedTimeConvert(Last_Modified);
+    }
+
+    cache_public = false;
+    std::string::size_type is_cache_public = res.find("cache-control");
+    if (is_cache_public != -1) {
+        cache_public = true;
     }
 
     cache_public = false;
@@ -60,7 +66,7 @@ void Response::parseResponse(std::string res) {
     if (pmax_age_start != 7) {
         std::string::size_type pmax_age_end = res.find("\r\n", pmax_age_start);
         max_age = atoi((res.substr(pmax_age_start, pmax_age_end - pmax_age_start)).c_str());
-        std::cout << "max-age " << max_age << std::endl;
+        std::cout << "max-age: " << max_age << std::endl;
     }
 
     std::string::size_type pexpire_start = res.find("Expires: ") + 9;

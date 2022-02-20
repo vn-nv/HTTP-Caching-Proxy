@@ -77,13 +77,10 @@ public:
     bool isPublic(){
         return cache_public;
     }
-    bool requireResend(){
-        return max_age != -1 && expire_time && last_modified_time;
-    }
     bool isExpired(){
-        time_t *curr_time;
-        time(curr_time);
-        return expire_time && expire_time < *curr_time;
+        std::time_t curr_time = std::time(nullptr);
+        std::asctime(std::gmtime(&curr_time));
+        return expire_time && expire_time < curr_time;
     }
     bool existEtag(){
         return Etag != "";
@@ -95,10 +92,10 @@ public:
         return Expired_Time != "";
     }
     bool requireValidation(){
-        time_t *curr_time;
-        time(curr_time);
-        return no_cache || must_revalidate || max_age != -1 && response_time && (max_age + response_time) < *curr_time 
-        || last_modified_time && response_time && (*curr_time - last_modified_time) / 10 < *curr_time - response_time;
+        std::time_t curr_time = std::time(nullptr);
+        std::asctime(std::gmtime(&curr_time));
+        return no_cache || must_revalidate || max_age == 0 || max_age != -1 && response_time && (max_age + response_time) < curr_time 
+        || last_modified_time && response_time && (curr_time - last_modified_time) / 10 < curr_time - response_time;
     }
 };
 

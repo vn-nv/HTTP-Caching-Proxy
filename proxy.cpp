@@ -63,6 +63,8 @@ void* Proxy::client_handler(void* request){
 	}else{
 		connect_handler(req);
 	}
+	close(req->getFd());
+	delete(req);
 	return NULL;
 }
 
@@ -79,7 +81,6 @@ std::vector<char> recv_response(Request* req, std::string new_request){
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(80);
-	std::cout<<host->h_addr<<std::endl;
 	memcpy(&server_addr.sin_addr, host->h_addr, host->h_length);
 	if (connect(server_socket_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
 	{
@@ -150,11 +151,7 @@ void not_hit_cache(Request* req){
 	pthread_mutex_lock(&mutex);
 	proxy_log << req->getId() << ": Received \"" <<  server_response->getResponse() << "\" from " << req->getHost() << std::endl;
 	pthread_mutex_unlock(&mutex);
-	if(server_response->requireResend()){
-		//log
-		get_handler(req);
-		return;
-	}else if(server_response->prohibitStoration()){
+	if(server_response->prohibitStoration()){
 		pthread_mutex_lock(&mutex);
 		proxy_log << req->getId() << ": not cacheable because of cache-control: no-store" << std::endl;
 		pthread_mutex_unlock(&mutex);
@@ -187,7 +184,6 @@ void not_hit_cache(Request* req){
 	proxy_log << req->getId() << ": Responding \"" << server_response->getResponse() << "\""<< std::endl;
 	proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 	pthread_mutex_unlock(&mutex);
-	delete(req);
 }
 
 void get_handler(Request* req){
@@ -211,7 +207,6 @@ void get_handler(Request* req){
 				proxy_log << req->getId() << ": Responding \"" << res->getResponse() << "\""<< std::endl;
 				proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 				pthread_mutex_unlock(&mutex);
-				delete(req);
 			}else if(revalidation_response->getStatus() == "200 OK"){
 				proxy_cache->put(req->getURL(), revalidation_response);
 				if (send(req->getFd(), revalidation_response->getContent().c_str(), revalidation_response->getContent().length(), 0) < 0){
@@ -221,7 +216,6 @@ void get_handler(Request* req){
 				proxy_log << req->getId() << ": Responding \"" << res->getResponse() << "\""<< std::endl;
 				proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 				pthread_mutex_unlock(&mutex);
-				delete(req);
 			}
 		}else if(res->isExpired()){
 			pthread_mutex_lock(&mutex);
@@ -239,7 +233,6 @@ void get_handler(Request* req){
 			proxy_log << req->getId() << ": Responding \"" << res->getResponse() << "\""<< std::endl;
 			proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 			pthread_mutex_unlock(&mutex);
-			delete(req);
 		}
 	}else{
 		pthread_mutex_lock(&mutex);
@@ -260,7 +253,6 @@ void post_handler(Request* req){
 	proxy_log << req->getId() << ": Responding \"" << s.substr(0, s.find("\r\n")) << "\""<< std::endl;
 	proxy_log << req->getId() << ": Tunnel closed" <<  std::endl;
 	pthread_mutex_unlock(&mutex);
-	delete(req);
 }
 
 void connect_handler(Request* req){
