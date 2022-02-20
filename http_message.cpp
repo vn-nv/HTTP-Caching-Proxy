@@ -17,7 +17,11 @@ void Response::parseResponse(std::string res) {
     if (pEtag_start != 5) {
         std::string::size_type pEtag_end = res.find("\r\n", pEtag_start);
         Etag = res.substr(pEtag_start, pEtag_end - pEtag_start);
-        std::cout << "Etag: \"" << Etag << "\"" << std::endl;
+        std::string::size_type weak;
+        if ((weak = Etag.find("W/")) != -1) {
+            Etag.erase(weak, 2);
+        }
+        std::cout << "Etag: " << Etag << std::endl;
     }
 
     std::string::size_type pModified_start = res.find("Last-Modified: ") + 15;
@@ -31,10 +35,10 @@ void Response::parseResponse(std::string res) {
         lastModifiedTimeConvert(Last_Modified);
     }
 
-    cache_public = false;
-    std::string::size_type is_cache_public = res.find("cache-control");
-    if (is_cache_public != -1) {
-        cache_public = true;
+    cache_control = false;
+    std::string::size_type exist_cache_control = res.find("cache-control");
+    if (exist_cache_control != -1) {
+        cache_control = true;
     }
 
     cache_public = false;

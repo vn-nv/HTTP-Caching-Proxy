@@ -41,6 +41,7 @@ class Response{
     std::string Last_Modified;
     std::string Expired_Time;
     bool cache_public;
+    bool cache_control;
     bool no_cache;
     bool no_store;
     bool must_revalidate;
@@ -82,6 +83,9 @@ public:
         std::asctime(std::gmtime(&curr_time));
         return expire_time && expire_time < curr_time;
     }
+    bool existCacheControl(){
+        return cache_control;
+    }
     bool existEtag(){
         return Etag != "";
     }
@@ -94,6 +98,8 @@ public:
     bool requireValidation(){
         std::time_t curr_time = std::time(nullptr);
         std::asctime(std::gmtime(&curr_time));
+        std::cout<<curr_time<<std::endl;
+        std::cout<<max_age + response_time<<std::endl;
         return no_cache || must_revalidate || max_age == 0 || max_age != -1 && response_time && (max_age + response_time) < curr_time 
         || last_modified_time && response_time && (curr_time - last_modified_time) / 10 < curr_time - response_time;
     }

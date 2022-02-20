@@ -155,7 +155,7 @@ void not_hit_cache(Request* req){
 		pthread_mutex_lock(&mutex);
 		proxy_log << req->getId() << ": not cacheable because of cache-control: no-store" << std::endl;
 		pthread_mutex_unlock(&mutex);
-	}else if(!server_response->isPublic()){
+	}else if(server_response->existCacheControl() && !server_response->isPublic()){
 		pthread_mutex_lock(&mutex);
 		proxy_log << req->getId() << ": not cacheable because of cache-control: private" << std::endl;
 		pthread_mutex_unlock(&mutex);
