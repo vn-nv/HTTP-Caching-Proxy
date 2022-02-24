@@ -1,0 +1,27 @@
+We were not able to get response from server when we sent the formatted 
+message to server. It turned out that one parameter (the length of the message)
+of send function was wrong. We fixed by changing this to the message's exact length 
+and this issue no more occurred. 
+
+When browsing a url, it took long time to receive the response even with a simple
+website. We found that this is because there would be a long time for the server
+to finish sending response (recv returns 0). Then we changed the method of replying
+to client by sending whatever was received each time instead of sending after receiving
+all information from the server.
+
+For exception handling, we throw exception when there was problem with socket creating,
+binding, accepting or connecting. Also, we deal with request format issue, for example,
+a request header with not-supported method. Similarly, with wrong formatted response,
+we also throw exception.
+
+At times we will receive invalid responses or requests like void responses, corrupted 
+responses, etc., which may lead to segmentation fault while parsing the responses. We 
+catch the exceptions and handle it properly.
+
+We have met termination with signal 13 (SIGPIPE) before, which may be caused by incorrectly
+writing to a socket that had been shutdown for writing or isn't connected (anymore). We 
+handle that via close the file descriptor properly.
+
+We also have faced the termination coming with signal 6 (SIGABRT), which is caused by the 
+huge memory leak, with message of pthread_create@@GLIBC_2.2.5. We handle that via using
+ptread_exit properly.
